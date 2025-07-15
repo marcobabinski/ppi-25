@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+        <title>Top Produtos Mais Vendidos - D3.js</title>
+
+        <link rel="stylesheet" href="dist/reset.css">
+        <link rel="stylesheet" href="dist/reveal.css">
+        <link rel="stylesheet" href="dist/theme/black.css">
+
+        <!-- Theme used for syntax highlighted code -->
+        <link rel="stylesheet" href="plugin/highlight/monokai.css">
+
+        <style>
+            /* Estilos básicos para o container do gráfico */
+            .chart-container {
+                width: 100%;
+                height: 600px; /* Ajuste conforme necessário */
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+            }
+            .chart-title {
+                margin-bottom: 20px;
+            }
+            .bar {
+                fill: steelblue;
+                transition: fill 0.3s ease; /* Transição suave para hover */
+            }
+            .bar:hover {
+                fill: orange;
+            }
+            .axis path,
+            .axis line {
+                fill: none;
+                stroke: #fff; /* Cor dos eixos para contraste com o tema black */
+                shape-rendering: crispEdges;
+            }
+            .x.axis text, .y.axis text {
+                fill: #fff; /* Cor do texto dos eixos */
+            }
+            .x.axis path {
+                display: none;
+            }
+            .tooltip {
+                position: absolute;
+                text-align: center;
+                padding: 8px;
+                background: rgba(0, 0, 0, 0.8);
+                color: #fff;
+                border: 0px;
+                border-radius: 8px;
+                pointer-events: none;
+                opacity: 0;
+                font-size: 14px;
+            }
+            .controls {
+                margin-top: 20px;
+                margin-bottom: 20px;
+                display: flex;
+                gap: 10px;
+                align-items: center;
+            }
+            .controls label {
+                color: #fff;
+                font-size: 1.2em;
+            }
+            .controls select {
+                padding: 8px 12px;
+                font-size: 16px;
+                border-radius: 5px;
+                border: 1px solid #ccc;
+                background-color: #333;
+                color: #fff;
+            }
+            .controls select:focus {
+                outline: none;
+                border-color: steelblue;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="reveal">
+            <div class="slides">
+                <section data-auto-animate>
+                    <h1 id="batman">Análise de Dados de Vendas</h1>
+                    <p>Visualizando os lelelelel produtos com maior valor de venda e sua incidência.</p>
+                    <p>Utilize o seletor para ordenar os produtos.</p>
+                    <svg data-id="sexo" viewBox="0 0 220 100" xmlns="https://www.w3.org/2000/svg">
+                        <!-- Simple rectangle -->
+                        <rect width="100" height="100" />
+
+                        <!-- Rounded corner rectangle -->
+                        <rect x="120" width="100" height="100" rx="15" />
+                    </svg>
+
+                </section>
+
+                <section data-auto-animate>
+                    <svg data-id="sexo" viewBox="0 0 220 100" xmlns="https://www.w3.org/2000/svg">
+                        <!-- Simple rectangle -->
+                        <rect width="100" height="30" />
+
+                        <!-- Rounded corner rectangle -->
+                        <rect x="120" width="100" height="100" rx="15" />
+                    </svg>
+
+                </section>
+
+                <section>
+                    <h2 class="chart-title">Comparativo de Vendas dos Top 20 Produtos</h2>
+                    <div class="" style="z-index: 10;">
+                        <label for="sortOrder">Ordenar por:</label>
+                        <select id="sortOrder">
+                            <option value="total_vendas">Valor de Venda Total (R$)</option>
+                            <option value="percent_incidencia">Incidência em Vendas (%)</option>
+                        </select>
+                    </div>
+                    <div id="productBarChart" class="chart-container"></div>
+                </section>
+            </div>
+        </div>
+
+        <script src="https://d3js.org/d3.v7.min.js"></script>
+        <script src="dist/reveal.js"></script>
+        <script src="plugin/notes/notes.js"></script>
+        <script src="plugin/markdown/markdown.js"></script>
+        <script src="plugin/highlight/highlight.js"></script>
+        <script>
+            Reveal.initialize({
+                hash: true,
+                plugins: [ RevealMarkdown, RevealHighlight, RevealNotes ]
+            });
+
+            let productData = []; // Variável global para armazenar os dados carregados
+            let currentChart; // Variável para armazenar a instância do gráfico D3
+
+            // Função para criar e gerenciar o gráfico de barras
+            function createBarChart(initialData) {
+                // Specify the chart’s dimensions.
+                const width = 1000; // Aumentado para melhor visualização dos nomes dos produtos
+                const height = 500;
+                const marginTop = 20;
+                const marginRight = 0;
+                const marginBottom = 120; // Aumentado para rótulos do eixo X rotacionados
+                const marginLeft = 80; // Aumentado para rótulos do eixo Y
+
+                // Declare the x (horizontal position) scale and the corresponding axis generator.
+                const x = d3.scaleBand()
+                    .domain(initialData.map(d => d.ProNom))
+                    .range([marginLeft, width - marginRight])
+                    .padding(0.1);
+
+                const xAxis = d3.axisBottom(x).tickSizeOuter(0);
+
+                // Declare the y (vertical position) scale.
+                // Inicialmente, usa total_vendas
+                let y = d3.scaleLinear()
+                    .domain([0, d3.max(initialData, d => d.total_vendas) * 1.05]).nice()
+                    .range([height - marginBottom, marginTop]);
+
+                // Create the SVG container.
+                const svg = d3.create("svg")
+                    .attr("viewBox", [0, 0, width, height])
+                    .attr("style", `max-width: ${width}px; height: auto; font: 10px sans-serif; overflow: visible;`);
+
+                // Create a bar for each product.
+                const bar = svg.append("g")
+                    .attr("fill", "steelblue")
+                    .selectAll("rect")
+                    .data(initialData, d => d.ProNom) // Usar ProNom como chave para transições
+                    .join("rect")
+                    .style("mix-blend-mode", "multiply")
+                    .attr("x", d => x(d.ProNom))
+                    .attr("y", d => y(d.total_vendas)) // Valor inicial
+                    .attr("height", d => y(0) - y(d.total_vendas)) // Valor inicial
+                    .attr("width", x.bandwidth());
+
+                // Create the axes.
+                const gx = svg.append("g")
+                    .attr("transform", `translate(0,${height - marginBottom})`)
+                    .call(xAxis)
+                    .selectAll("text") // Rotaciona os rótulos do eixo X
+                    .attr("transform", "rotate(-45)")
+                    .style("text-anchor", "end")
+                    .style("font-size", "12px");
+
+                let gy = svg.append("g")
+                    .attr("transform", `translate(${marginLeft},0)`)
+                    .call(d3.axisLeft(y).tickFormat(d => `R$ ${d3.format(".2s")(d)}`)) // Formato inicial para Reais
+                    .call(g => g.select(".domain").remove())
+                    .append("text") // Rótulo do eixo Y
+                    .attr("fill", "#fff")
+                    .attr("transform", "rotate(-90)")
+                    .attr("y", -marginLeft + 20)
+                    .attr("x", -height / 2)
+                    .attr("dy", "1em")
+                    .attr("text-anchor", "middle")
+                    .text("Valor de Venda Total (R$)");
+
+                // Cria o tooltip
+                const tooltip = d3.select("body").append("div")
+                    .attr("class", "tooltip")
+                    .style("opacity", 0);
+
+                // Adiciona eventos de mouse para o tooltip
+                bar.on("mouseover", function(event, d) {
+                    tooltip.transition()
+                        .duration(200)
+                        .style("opacity", .9);
+                    tooltip.html(`Produto: <strong>${d.ProNom}</strong><br/>
+                                  Total Vendas: <strong>R$ ${d.total_vendas.toFixed(2)}</strong><br/>
+                                  Incidência: <strong>${d.percent_incidencia.toFixed(2)}%</strong>`)
+                        .style("left", (event.pageX + 10) + "px")
+                        .style("top", (event.pageY - 28) + "px");
+                })
+                .on("mouseout", function(d) {
+                    tooltip.transition()
+                        .duration(500)
+                        .style("opacity", 0);
+                });
+
+
+                // Retorna o gráfico, com uma função de atualização
+                return Object.assign(svg.node(), {
+                    update(sortBy) {
+                        // Ordena os dados com base no critério selecionado
+                        productData.sort((a, b) => {
+                            if (sortBy === 'total_vendas') {
+                                return b.total_vendas - a.total_vendas;
+                            } else if (sortBy === 'percent_incidencia') {
+                                return b.percent_incidencia - a.percent_incidencia;
+                            }
+                            return 0; // Default
+                        });
+
+                        // Atualiza o domínio da escala X com os dados ordenados
+                        x.domain(productData.map(d => d.ProNom));
+
+                        // Atualiza o domínio da escala Y com base na nova métrica e valores
+                        y.domain([0, d3.max(productData, d => d[sortBy]) * 1.05]).nice();
+
+                        const t = svg.transition()
+                            .duration(750);
+
+                        // Transição das barras para as novas posições e alturas
+                        bar.data(productData, d => d.ProNom)
+                            .order() // Garante que a ordem dos elementos no DOM corresponda à ordem dos dados
+                            .transition(t)
+                            .delay((d, i) => i * 20)
+                            .attr("x", d => x(d.ProNom))
+                            .attr("y", d => y(d[sortBy]))
+                            .attr("height", d => y(0) - y(d[sortBy]));
+
+                        // Transição do eixo X
+                        gx.transition(t)
+                            .call(xAxis)
+                            .selectAll(".tick")
+                            .delay((d, i) => i * 20);
+
+                        // Transição do eixo Y e atualização do formato do tick e rótulo
+                        gy.transition(t)
+                            .call(d3.axisLeft(y).tickFormat(d => {
+                                if (sortBy === 'total_vendas') return `R$ ${d3.format(".2s")(d)}`;
+                                if (sortBy === 'percent_incidencia') return `${d.toFixed(1)}%`;
+                                return d;
+                            }))
+                            .call(g => g.select(".domain").remove())
+                            .select("text") // Seleciona o rótulo do eixo Y
+                            .text(sortBy === 'total_vendas' ? "Valor de Venda Total (R$)" : "Incidência em Vendas (%)");
+                    }
+                });
+            }
+
+            // Carrega os dados processados do JSON
+            d3.json("./data/top_products.json").then(function(data) {
+                productData = data; // Armazena os dados na variável global
+                // Cria o gráfico inicial com ordenação por total_vendas
+                currentChart = createBarChart(productData.slice().sort((a, b) => b.total_vendas - a.total_vendas)); // Passa uma cópia ordenada para a criação inicial
+
+                // Adiciona o gráfico ao container
+                d3.select("#productBarChart").node().appendChild(currentChart);
+
+                // Adiciona listener ao seletor de ordenação
+                d3.select("#sortOrder").on("change", function() {
+                    currentChart.update(this.value); // Chama a função de atualização do gráfico
+                });
+
+            }).catch(function(error){
+                console.log("Erro ao carregar os dados dos top produtos:", error);
+                d3.select("#productBarChart").html("<p style='color: red;'>Erro ao carregar os dados. Verifique se 'data/top_products.json' existe e está correto.</p>");
+            });
+        </script>
+    </body>
+</html>
